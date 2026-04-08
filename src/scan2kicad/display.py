@@ -26,9 +26,11 @@ def _extract_image_bytes(image_field: object) -> bytes | None:
         return bytes(image_field)
     # HF struct: Row(bytes=b'...', path='...')
     if hasattr(image_field, "bytes"):
-        return image_field.bytes  # type: ignore[return-value]
-    if isinstance(image_field, dict) and "bytes" in image_field:
-        return image_field["bytes"]
+        raw = getattr(image_field, "bytes")
+        return raw if isinstance(raw, bytes) else None
+    if isinstance(image_field, dict):
+        val = image_field.get("bytes")  # ty: ignore[invalid-argument-type]
+        return val if isinstance(val, bytes) else None
     return None
 
 

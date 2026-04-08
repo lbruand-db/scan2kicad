@@ -21,7 +21,7 @@ class SvgBuilder:
         self._vb_w = w + 2 * margin
         self._vb_h = h + 2 * margin
         self._background = background
-        self._elements: list[ET.Element] = []
+        self._elements: list[ET.Element | tuple[str, ET.Element | None]] = []
         self._defs: list[ET.Element] = []
 
     def add_line(
@@ -206,11 +206,9 @@ class SvgBuilder:
         el = ET.Element("g")
         if transform:
             el.set("transform", transform)
-        self._elements.append(("open", el))  # type: ignore[arg-type]
-
+        self._elements.append(("open", el))
     def close_group(self) -> None:
-        self._elements.append(("close", None))  # type: ignore[arg-type]
-
+        self._elements.append(("close", None))
     def to_string(self) -> str:
         """Produce the final SVG string."""
         svg = ET.Element(
@@ -234,12 +232,12 @@ class SvgBuilder:
         for item in self._elements:
             if isinstance(item, tuple):
                 tag, el = item
-                if tag == "open":
+                if tag == "open" and el is not None:
                     stack[-1].append(el)
                     stack.append(el)
                 elif tag == "close" and len(stack) > 1:
                     stack.pop()
-            else:
+            elif isinstance(item, ET.Element):
                 stack[-1].append(item)
 
         ET.indent(svg, space="  ")

@@ -67,6 +67,8 @@ def _parse_fill_type(sexp: list) -> str:
 def _parse_rectangle(sexp: list) -> Rect:
     start_node = _find(sexp, "start")
     end_node = _find(sexp, "end")
+    assert start_node is not None, "rectangle missing (start)"
+    assert end_node is not None, "rectangle missing (end)"
     start = Point(float(start_node[1]), float(start_node[2]))
     end = Point(float(end_node[1]), float(end_node[2]))
     return Rect(
@@ -79,6 +81,7 @@ def _parse_rectangle(sexp: list) -> Rect:
 
 def _parse_polyline(sexp: list) -> Polyline:
     pts_node = _find(sexp, "pts")
+    assert pts_node is not None, "polyline missing (pts)"
     points = tuple(_parse_point(xy) for xy in _find_all(pts_node, "xy"))
     return Polyline(
         points=points,
@@ -91,6 +94,9 @@ def _parse_arc(sexp: list) -> Arc:
     start_node = _find(sexp, "start")
     mid_node = _find(sexp, "mid")
     end_node = _find(sexp, "end")
+    assert start_node is not None, "arc missing (start)"
+    assert mid_node is not None, "arc missing (mid)"
+    assert end_node is not None, "arc missing (end)"
     return Arc(
         start=Point(float(start_node[1]), float(start_node[2])),
         mid=Point(float(mid_node[1]), float(mid_node[2])),
@@ -102,6 +108,7 @@ def _parse_arc(sexp: list) -> Arc:
 
 def _parse_circle(sexp: list) -> Circle:
     center_node = _find(sexp, "center")
+    assert center_node is not None, "circle missing (center)"
     radius_val = _get_float(sexp, "radius")
     return Circle(
         center=Point(float(center_node[1]), float(center_node[2])),
@@ -117,6 +124,7 @@ def _parse_pin(sexp: list) -> PinGraphic:
     pin_shape = sexp[2].value() if isinstance(sexp[2], sexpdata.Symbol) else str(sexp[2])
 
     at_node = _find(sexp, "at")
+    assert at_node is not None, "pin missing (at)"
     x, y = float(at_node[1]), float(at_node[2])
     rotation = float(at_node[3]) if len(at_node) > 3 else 0.0
 
