@@ -3,6 +3,7 @@ name = "scan2kicad"
 version = "0.1.0"
 description = "KiCAD on Databricks — ingest, understand, and render electronic schematics"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "databricks-sdk>=0.20",
