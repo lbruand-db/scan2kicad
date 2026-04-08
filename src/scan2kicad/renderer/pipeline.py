@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import tempfile
 
+import sexpdata
+
 from .lib_symbol_parser import LibSymbolParser
 from .svg_builder import SvgBuilder
 from .types import PinGraphic
@@ -30,6 +32,7 @@ def render_schematic_svg(
     label_color: str = "#008000",
     text_color: str = "#000000",
     pin_color: str = "#800000",
+    pin_name_color: str = "#008080",
     no_connect_color: str = "#0000FF",
     stroke_width: float = 0.254,
     font_family: str = "monospace",
@@ -51,7 +54,16 @@ def render_schematic_svg(
     # 5. Render layers (back to front)
     _render_schematic_graphics(svg, sch, component_color, stroke_width)
     _render_wires(svg, sch, wire_color, bus_color, stroke_width)
-    _render_symbols(svg, sch, lib_parser, component_color, pin_color, stroke_width, font_family)
+    _render_symbols(
+        svg,
+        sch,
+        lib_parser,
+        component_color,
+        pin_color,
+        pin_name_color,
+        stroke_width,
+        font_family,
+    )
     _render_junctions(svg, sch, junction_color)
     _render_no_connects(svg, sch, no_connect_color, stroke_width)
     _render_labels(svg, sch, label_color, font_family)
@@ -83,7 +95,6 @@ def _compute_bounding_box(sch, lib_parser: LibSymbolParser) -> tuple[float, floa
     for comp in sch.components:
         xs.append(comp.position.x)
         ys.append(comp.position.y)
-        # Expand by symbol graphics bounding box
         gfx = lib_parser.get_symbol_graphics(comp.lib_id, unit=_comp_unit(comp))
         for rect in gfx.rectangles:
             xs.extend([comp.position.x + rect.start.x, comp.position.x + rect.end.x])
@@ -125,6 +136,55 @@ def _pin_endpoint(pin: PinGraphic) -> tuple[float, float]:
     return (pin.position.x + dx, pin.position.y + dy)
 
 
+def _is_hidden_property(comp, prop_name: str) -> bool:
+    """Check if a property is hidden (e.g. #PWR refs have 'hide' in effects)."""
+    sexp_key = f"__sexp_{prop_name}"
+    sexp_data = comp.properties.get(sexp_key)
+    if sexp_data and isinstance(sexp_data, list):
+        # Check for Symbol('hide') in effects
+        for item in sexp_data:
+            if isinstance(item, sexpdata.Symbol) and item.value() == "hide":
+                return True
+            if isinstance(item, list):
+                for sub in item:
+                    if isinstance(sub, sexpdata.Symbol) and sub.value() == "hide":
+                        return True
+    # Also hide refs starting with # (power symbol convention)
+    if prop_name == "Reference" and comp.reference.startswith("#"):
+        return True
+    return False
+
+
+def _label_text_rotation(rotation: float) -> float:
+    """Convert KiCad label rotation to SVG text rotation.
+
+    KiCad labels at 0° connect on the right, text extends left.
+    At 180° they connect on the left, text extends right.
+    Text should always be readable (never upside down).
+    """
+    # Normalize to [0, 360)
+    r = rotation % 360
+    if r == 0:
+        return 0.0
+    if r == 90:
+        return 90.0  # vertical, reading bottom-to-top... but keep as-is
+    if r == 180:
+        return 0.0  # text extends right, no rotation needed
+    if r == 270:
+        return 270.0
+    return r
+
+
+def _label_anchor(rotation: float) -> str:
+    """Pick text-anchor based on label rotation."""
+    r = rotation % 360
+    if r == 0:
+        return "end"  # text extends left from connection point
+    if r == 180:
+        return "start"  # text extends right from connection point
+    return "start"
+
+
 # ---- Layer renderers ----
 
 
@@ -152,24 +212,27 @@ def _render_no_connects(svg: SvgBuilder, sch, color: str, width: float) -> None:
 
 def _render_labels(svg: SvgBuilder, sch, color: str, font_family: str) -> None:
     for label in sch.labels:
+        rot = label.rotation if hasattr(label, "rotation") else 0
         svg.add_text(
             label.position.x,
             label.position.y,
             label.text,
             size=label.size if hasattr(label, "size") else 1.27,
             color=color,
-            rotation=label.rotation if hasattr(label, "rotation") else 0,
+            rotation=_label_text_rotation(rot),
+            anchor=_label_anchor(rot),
             font_family=font_family,
         )
-    # Also render hierarchical labels
     for label in sch.hierarchical_labels:
+        rot = label.rotation if hasattr(label, "rotation") else 0
         svg.add_text(
             label.position.x,
             label.position.y,
             label.text,
             size=label.size if hasattr(label, "size") else 1.27,
             color=color,
-            rotation=label.rotation if hasattr(label, "rotation") else 0,
+            rotation=_label_text_rotation(rot),
+            anchor=_label_anchor(rot),
             font_family=font_family,
         )
 
@@ -194,6 +257,7 @@ def _render_symbols(
     lib_parser: LibSymbolParser,
     comp_color: str,
     pin_color: str,
+    pin_name_color: str,
     width: float,
     font_family: str,
 ) -> None:
@@ -250,33 +314,112 @@ def _render_symbols(
                 _fill_to_svg(circ.fill, comp_color),
             )
 
-        # Draw pins
+        # Draw pins (line + name/number)
         for pin in gfx.pins:
             ex, ey = _pin_endpoint(pin)
             svg.add_line(pin.position.x, pin.position.y, ex, ey, pin_color, width)
 
+            # Pin name at the endpoint (inside the symbol body)
+            if pin.name and pin.name != "~":
+                name_x = (pin.position.x + ex) / 2
+                name_y = (pin.position.y + ey) / 2
+                svg.add_text(
+                    name_x,
+                    name_y,
+                    pin.name,
+                    size=0.8,
+                    color=pin_name_color,
+                    anchor="middle",
+                    font_family=font_family,
+                )
+
+            # Pin number near the pin position (outside the body)
+            if pin.number and pin.number != "~":
+                svg.add_text(
+                    ex,
+                    ey - 0.5,
+                    pin.number,
+                    size=0.6,
+                    color=pin_color,
+                    anchor="middle",
+                    font_family=font_family,
+                )
+
         svg.close_group()
 
-        # Draw reference and value text (outside group, in schematic coords)
-        svg.add_text(
-            px,
-            py - 2.0,
+        # Draw reference and value text at their actual positions (not fixed offsets)
+        _render_component_property(
+            svg,
+            comp,
+            "Reference",
             comp.reference,
-            size=1.27,
-            color=comp_color,
-            anchor="middle",
-            font_family=font_family,
+            comp_color,
+            font_family,
             bold=True,
         )
-        svg.add_text(
-            px,
-            py + 2.0,
+        _render_component_property(
+            svg,
+            comp,
+            "Value",
             comp.value if hasattr(comp, "value") else "",
-            size=1.0,
-            color=comp_color,
-            anchor="middle",
-            font_family=font_family,
+            comp_color,
+            font_family,
+            bold=False,
         )
+
+
+def _render_component_property(
+    svg: SvgBuilder,
+    comp,
+    prop_name: str,
+    prop_value: str,
+    color: str,
+    font_family: str,
+    bold: bool = False,
+) -> None:
+    """Render a component property (Reference, Value) at its schematic position."""
+    if not prop_value:
+        return
+
+    # Skip hidden properties (e.g., #PWR refs)
+    if _is_hidden_property(comp, prop_name):
+        return
+
+    # Get position from property effects
+    try:
+        effects = comp.get_property_effects(prop_name)
+    except (KeyError, AttributeError):
+        return
+
+    if not effects or "position" not in effects:
+        return
+
+    pos = effects["position"]
+    x, y = pos[0], pos[1]
+    rot = effects.get("rotation", 0.0)
+    font_size = 1.27
+    fs = effects.get("font_size")
+    if fs and isinstance(fs, (tuple, list)) and len(fs) >= 1:
+        font_size = fs[0]
+
+    justify_h = effects.get("justify_h")
+    anchor = "middle"
+    if justify_h == "left":
+        anchor = "start"
+    elif justify_h == "right":
+        anchor = "end"
+
+    svg.add_text(
+        x,
+        y,
+        prop_value,
+        size=font_size,
+        color=color,
+        rotation=rot,
+        anchor=anchor,
+        font_family=font_family,
+        bold=bold,
+    )
 
 
 def _render_schematic_graphics(svg: SvgBuilder, sch, color: str, width: float) -> None:
