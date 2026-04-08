@@ -1,0 +1,11 @@
+resources:
+  model_serving_endpoints:
+    qwen3vl_schematics:
+      name: "qwen3vl-schematics"
+      config:
+        served_entities:
+          - entity_name: ${var.catalog}.${var.schema}.qwen3vl_open_schematics
+            entity_version: "1"
+            workload_type: GPU_MEDIUM
+            workload_size: Small
+            scale_to_zero_enabled: true

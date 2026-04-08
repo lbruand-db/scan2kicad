@@ -1,0 +1,20 @@
+resources:
+  jobs:
+    qwen3vl_batch_inference:
+      name: "[${bundle.target}] Qwen3VL batch inference on schematics"
+      tasks:
+        - task_key: batch_inference
+          notebook_task:
+            notebook_path: ../src/notebooks/02_qwen3vl_batch_inference.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          new_cluster:
+            spark_version: 15.4.x-gpu-ml-scala2.12
+            node_type_id: g5.2xlarge
+            num_workers: 0
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: singleNode
+            custom_tags:
+              ResourceClass: SingleNode
