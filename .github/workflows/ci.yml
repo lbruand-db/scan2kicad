@@ -22,7 +22,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev
-      - run: uv run ty check src/scan2kicad/
+      - name: Run ty (warnings expected for GPU/Spark deps)
+        run: |
+          uv run ty check src/scan2kicad/ 2>&1; rc=$?
+          # Exit code 1 = warnings only (expected), 2+ = config/hard errors
+          if [ $rc -ge 2 ]; then exit $rc; fi
+          # Fail if any actual errors (not warnings)
+          uv run ty check src/scan2kicad/ 2>&1 | grep -q "^error" && exit 1 || true
 
   test:
     runs-on: ubuntu-latest

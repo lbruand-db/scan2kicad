@@ -21,6 +21,8 @@ gpu = [
 ]
 dev = [
     "pytest>=8.0",
+    "ruff>=0.15",
+    "ty>=0.0.23",
 ]
 
 [build-system]
