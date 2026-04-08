@@ -1,0 +1,6 @@
+(kicad_sch (version 20221018) (generator eeschema)
+  (paper "A4")
+  (lib_symbols)
+  (sheet_instances)
+  (symbol (lib_id "power:GND") (at 0 0 0) (property "Reference" "GND" (at 0 -2.54 0) (effects (font (size 1.27 1.27)))))
+)

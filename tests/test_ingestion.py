@@ -51,7 +51,9 @@ class TestIngestOpenSchematics:
         _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad")
         sql_calls = [c[0][0] for c in mock_spark.sql.call_args_list]
         assert any("CREATE SCHEMA IF NOT EXISTS lucasbruand_catalog.kicad" in s for s in sql_calls)
-        assert any("CREATE VOLUME IF NOT EXISTS lucasbruand_catalog.kicad.raw" in s for s in sql_calls)
+        assert any(
+            "CREATE VOLUME IF NOT EXISTS lucasbruand_catalog.kicad.raw" in s for s in sql_calls
+        )
 
     def test_writes_delta_table(self) -> None:
         _, mock_spark = _run_ingest(

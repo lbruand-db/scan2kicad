@@ -40,6 +40,22 @@ class TestParseKicadWires:
         assert len(wires) == 1
         assert wires[0] == (150.0, 0.2, 300.0, 4.0)
 
+    def test_multiline_format(self) -> None:
+        """Real KiCad 9 format uses newlines and tabs between wire and pts."""
+        content = """(wire
+		(pts
+			(xy 180.34 104.14) (xy 173.99 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0145d46e")
+	)"""
+        wires = parse_kicad_wires(content)
+        assert len(wires) == 1
+        assert wires[0] == (180.34, 104.14, 173.99, 104.14)
+
 
 class TestRenderSchematicMatplotlib:
     def test_returns_figure(self, sample_kicad_sch: str) -> None:
@@ -58,7 +74,7 @@ class TestRenderSchematicMatplotlib:
         fig = render_schematic_matplotlib(sample_kicad_sch)
         axes = fig.get_axes()
         assert len(axes) == 1
-        assert axes[0].get_title() == "KiCad Schematic (wire-level preview)"
+        assert "KiCad Schematic Preview" in axes[0].get_title()
 
 
 class TestRenderKicadSchematic:
