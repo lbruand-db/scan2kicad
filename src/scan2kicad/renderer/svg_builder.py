@@ -207,8 +207,10 @@ class SvgBuilder:
         if transform:
             el.set("transform", transform)
         self._elements.append(("open", el))
+
     def close_group(self) -> None:
         self._elements.append(("close", None))
+
     def to_string(self) -> str:
         """Produce the final SVG string."""
         svg = ET.Element(

@@ -146,9 +146,18 @@ class TestComplexSymbols:
     def test_pin_types_are_valid(self, complex_sch: str) -> None:
         parser = LibSymbolParser(complex_sch)
         valid_types = {
-            "input", "output", "bidirectional", "tri_state",
-            "passive", "free", "unspecified", "power_in",
-            "power_out", "open_collector", "open_emitter", "no_connect",
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect",
         }
         for sym_name in parser.list_symbols():
             gfx = parser.get_symbol_graphics(sym_name)
@@ -170,9 +179,7 @@ class TestComplexSymbols:
             gfx = parser.get_symbol_graphics(sym_name)
             for arc in gfx.arcs:
                 # start, mid, end should not all be identical
-                assert not (
-                    arc.start == arc.mid == arc.end
-                ), f"Degenerate arc in {sym_name}"
+                assert not (arc.start == arc.mid == arc.end), f"Degenerate arc in {sym_name}"
 
     def test_circle_has_positive_radius(self, complex_sch: str) -> None:
         parser = LibSymbolParser(complex_sch)
