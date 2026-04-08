@@ -34,6 +34,7 @@ This specification describes three workstreams for bringing KiCad electronic des
 | open-schematics dataset | https://huggingface.co/datasets/bshada/open-schematics | CC-BY-4.0 |
 | qwen3vl-open-schematics-lora | https://huggingface.co/kingabzpro/qwen3vl-open-schematics-lora | Apache 2.0 |
 | kicad-python (official bindings) | https://gitlab.com/kicad/code/kicad-python/ | MIT |
+| Stretch (browser KiCad renderer) | https://github.com/JarrettR/Stretch | MIT |
 
 ---
 
@@ -551,10 +552,15 @@ df = spark.table("main.kicad.open_schematics")
 display_schematic_gallery(df, n=9, cols=3)
 ```
 
+#### Approach D: Stretch (Browser-based KiCad Rendering)
+
+[Stretch](https://github.com/JarrettR/Stretch) is an open-source tool that renders KiCad files directly in the browser. It parses `.kicad_sch` and `.kicad_pcb` files and draws them onto an HTML5 canvas, providing interactive pan/zoom without requiring a KiCad installation. This could be explored as a lightweight, zero-install rendering option — potentially embedded in a Databricks App or served as a standalone viewer alongside notebooks.
+
 ### 4.4 Considerations
 
 - **Approach A** (kicad-cli) gives pixel-perfect rendering but requires a cluster init script and ~500 MB of installed libraries.
 - **Approach B** (matplotlib) is lightweight but only draws wires; symbols and text require deeper S-expression parsing.
+- **Approach D** (Stretch) could provide interactive browser-based rendering without any server-side KiCad installation; worth evaluating for a Databricks App front-end.
 - For most use cases, the **pre-rendered `image` column** in the dataset is sufficient. On-the-fly rendering is needed only for newly generated or modified schematics.
 
 ---
