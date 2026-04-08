@@ -12,22 +12,20 @@
 2. [Component 1: Open-Schematics Delta Table Ingestion](#2-component-1-open-schematics-delta-table-ingestion)
 3. [Component 2: Qwen3VL Schematic Understanding](#3-component-2-qwen3vl-schematic-understanding)
 4. [Component 3: KiCad File Rendering in Databricks](#4-component-3-kicad-file-rendering-in-databricks)
-5. [Component 4: KiCad-Tools in Code Genie](#5-component-4-kicad-tools-in-code-genie)
-6. [Architecture Overview](#6-architecture-overview)
-7. [Dependencies & Prerequisites](#7-dependencies--prerequisites)
+5. [Architecture Overview](#5-architecture-overview)
+6. [Dependencies & Prerequisites](#6-dependencies--prerequisites)
 
 ---
 
 ## 1. Overview
 
-This specification describes four workstreams for bringing KiCad electronic design automation (EDA) capabilities into the Databricks platform:
+This specification describes three workstreams for bringing KiCad electronic design automation (EDA) capabilities into the Databricks platform:
 
 | # | Workstream | Purpose |
 |---|-----------|---------|
 | 1 | **Delta Table Ingestion** | Download the open-schematics dataset from Hugging Face and store it as a Delta table |
 | 2 | **Qwen3VL Inference** | Use qwen3vl-open-schematics-lora for schematic image understanding (notebook + Model Serving) |
 | 3 | **KiCad Rendering** | Render `.kicad_sch` / `.kicad_pcb` files visually inside Databricks notebooks |
-| 4 | **KiCad-Tools + Code Genie** | Expose kicad-tools agentic framework as a tool in Databricks Code Genie |
 
 ### External Resources
 
@@ -36,7 +34,6 @@ This specification describes four workstreams for bringing KiCad electronic desi
 | open-schematics dataset | https://huggingface.co/datasets/bshada/open-schematics | CC-BY-4.0 |
 | qwen3vl-open-schematics-lora | https://huggingface.co/kingabzpro/qwen3vl-open-schematics-lora | Apache 2.0 |
 | kicad-python (official bindings) | https://gitlab.com/kicad/code/kicad-python/ | MIT |
-| kicad-tools (agentic framework) | https://github.com/rjwalters/kicad-tools | See repo |
 
 ---
 
@@ -562,282 +559,7 @@ display_schematic_gallery(df, n=9, cols=3)
 
 ---
 
-## 5. Component 4: KiCad-Tools in Code Genie
-
-### 5.1 Overview
-
-[kicad-tools](https://github.com/rjwalters/kicad-tools) is an agentic framework that exposes KiCad file operations as tool calls consumable by LLMs. It can parse, analyze, and manipulate `.kicad_sch` and `.kicad_pcb` files **without a running KiCad instance**.
-
-Key capabilities:
-- Parse schematics/PCBs into structured Python objects
-- Generate BOM, netlist, component lists
-- Run DRC/ERC checks (pure Python, no kicad-cli needed)
-- Autoroute PCBs with physics/evolutionary algorithms
-- Provide an MCP server for LLM tool integration
-- `PCBReasoningAgent` for iterative LLM-driven layout
-
-### 5.2 Integration with Databricks Code Genie
-
-Code Genie (Databricks Assistant) supports tool use through function calling. We integrate kicad-tools by:
-
-#### Option A: MCP Server Integration
-
-kicad-tools ships an MCP server that exposes tools directly compatible with LLM function calling:
-
-```bash
-pip install "kicad-tools[mcp]"
-kct mcp serve
-```
-
-**Exposed MCP tools:**
-
-| Category | Tools |
-|----------|-------|
-| Analysis | `analyze_board`, `get_drc_violations`, `measure_clearance` |
-| Export | `export_gerbers`, `export_bom`, `export_assembly` |
-| Placement | `placement_analyze`, `placement_suggestions` |
-| Routing | `route_net`, `get_unrouted_nets` |
-| Sessions | `start_session`, `query_move`, `apply_move`, `commit`, `rollback` |
-
-To connect this to Code Genie, register the MCP server in the workspace Genie configuration (when MCP support is available in Genie), or wrap the tools as Genie tool functions.
-
-#### Option B: Unity Catalog Functions (Recommended Today)
-
-Wrap kicad-tools operations as Unity Catalog Python UDFs that Genie can call:
-
-```sql
--- Parse a schematic and list components
-CREATE OR REPLACE FUNCTION main.kicad.list_components(
-    schematic_content STRING
-)
-RETURNS ARRAY<STRUCT<reference STRING, value STRING, footprint STRING>>
-LANGUAGE PYTHON
-AS $$
-from kicad_tools import load_schematic, Schematic
-
-doc = load_schematic_from_string(schematic_content)
-sch = Schematic(doc)
-return [
-    {"reference": s.reference, "value": s.value, "footprint": s.footprint}
-    for s in sch.symbols
-]
-$$;
-
--- Generate BOM from schematic
-CREATE OR REPLACE FUNCTION main.kicad.generate_bom(
-    schematic_content STRING
-)
-RETURNS STRING
-LANGUAGE PYTHON
-AS $$
-from kicad_tools import load_schematic, Schematic
-import json
-
-doc = load_schematic_from_string(schematic_content)
-sch = Schematic(doc)
-bom = []
-for s in sch.symbols:
-    bom.append({
-        "reference": s.reference,
-        "value": s.value,
-        "footprint": s.footprint,
-    })
-return json.dumps(bom, indent=2)
-$$;
-
--- Trace a net through the schematic
-CREATE OR REPLACE FUNCTION main.kicad.trace_net(
-    schematic_content STRING,
-    net_name STRING
-)
-RETURNS STRING
-LANGUAGE PYTHON
-AS $$
-from kicad_tools import load_schematic, Schematic
-import json
-
-doc = load_schematic_from_string(schematic_content)
-sch = Schematic(doc)
-net_info = sch.trace_net(net_name)
-return json.dumps(net_info, indent=2)
-$$;
-
--- Run ERC (Electrical Rules Check)
-CREATE OR REPLACE FUNCTION main.kicad.run_erc(
-    schematic_content STRING
-)
-RETURNS STRING
-LANGUAGE PYTHON
-AS $$
-from kicad_tools import load_schematic, Schematic
-import json
-
-doc = load_schematic_from_string(schematic_content)
-sch = Schematic(doc)
-violations = sch.run_erc()
-return json.dumps(violations, indent=2)
-$$;
-```
-
-#### Option C: Genie Tool Functions (Python)
-
-If using Genie Spaces with custom tool support, define tools as Python functions:
-
-```python
-# genie_kicad_tools.py — register as Genie tool functions
-
-from kicad_tools import load_schematic, Schematic, Project
-from kicad_tools.validate import DRCChecker
-from kicad_tools import PCB
-import json
-
-
-def list_schematic_components(schematic_content: str) -> str:
-    """List all components in a KiCad schematic.
-
-    Args:
-        schematic_content: Raw .kicad_sch file content as a string.
-
-    Returns:
-        JSON array of components with reference, value, and footprint.
-    """
-    doc = load_schematic(schematic_content)
-    sch = Schematic(doc)
-    components = [
-        {
-            "reference": s.reference,
-            "value": s.value,
-            "footprint": s.footprint,
-        }
-        for s in sch.symbols
-    ]
-    return json.dumps(components, indent=2)
-
-
-def analyze_pcb_board(pcb_content: str) -> str:
-    """Analyze a KiCad PCB board file.
-
-    Args:
-        pcb_content: Raw .kicad_pcb file content as a string.
-
-    Returns:
-        JSON summary of board dimensions, layers, nets, and components.
-    """
-    pcb = PCB.from_string(pcb_content)
-    summary = {
-        "board_dimensions": pcb.dimensions,
-        "layer_count": len(pcb.layers),
-        "net_count": len(pcb.nets),
-        "component_count": len(pcb.footprints),
-        "unrouted_nets": len(pcb.get_unrouted_nets()),
-    }
-    return json.dumps(summary, indent=2)
-
-
-def run_design_rule_check(pcb_content: str, manufacturer: str = "jlcpcb") -> str:
-    """Run DRC on a KiCad PCB with manufacturer-specific rules.
-
-    Args:
-        pcb_content: Raw .kicad_pcb file content.
-        manufacturer: Target manufacturer (jlcpcb, oshpark, etc.).
-
-    Returns:
-        JSON array of DRC violations.
-    """
-    pcb = PCB.from_string(pcb_content)
-    checker = DRCChecker(pcb, manufacturer=manufacturer)
-    results = checker.check_all()
-    return json.dumps(results, indent=2)
-
-
-def generate_bom_csv(schematic_content: str) -> str:
-    """Generate a Bill of Materials from a KiCad schematic.
-
-    Args:
-        schematic_content: Raw .kicad_sch file content.
-
-    Returns:
-        CSV-formatted BOM string.
-    """
-    doc = load_schematic(schematic_content)
-    sch = Schematic(doc)
-    lines = ["Reference,Value,Footprint,Quantity"]
-    for s in sch.symbols:
-        lines.append(f"{s.reference},{s.value},{s.footprint},1")
-    return "\n".join(lines)
-```
-
-### 5.3 Example Genie Conversations
-
-With these tools registered, a Genie user can have conversations like:
-
-> **User:** "What components are used in the UART programmer schematic?"
->
-> **Genie:** *calls `list_components` on the schematic from `main.kicad.open_schematics` where name = 'TiebeDeclercq/Uart-programmer'`*
->
-> "The UART programmer uses: U1 (CH340G USB-UART bridge), C1-C3 (100nF decoupling caps), R1-R2 (10K pull-ups), J1 (USB-A connector), J2 (6-pin header)..."
-
-> **User:** "Run a design rule check on my PCB with JLCPCB rules"
->
-> **Genie:** *calls `run_design_rule_check(pcb_content, manufacturer="jlcpcb")`*
->
-> "Found 3 violations: minimum trace width violation on net VCC (0.15mm < 0.2mm required), silk-to-pad clearance on U1 pin 3..."
-
-> **User:** "Generate a BOM for this schematic"
->
-> **Genie:** *calls `generate_bom_csv(schematic_content)`*
->
-> *Returns formatted BOM table*
-
-### 5.4 Advanced: PCB Reasoning Agent Loop
-
-For complex PCB layout tasks, use the `PCBReasoningAgent` in a notebook to run an iterative LLM-driven layout session:
-
-```python
-from kicad_tools import PCBReasoningAgent
-from databricks.sdk import WorkspaceClient
-
-w = WorkspaceClient()
-
-agent = PCBReasoningAgent.from_pcb("board.kicad_pcb")
-
-while not agent.is_complete():
-    prompt = agent.get_prompt()
-
-    # Use Databricks Foundation Model API or external LLM
-    response = w.serving_endpoints.query(
-        name="databricks-claude-sonnet",  # or any FMAPI endpoint
-        messages=[{"role": "user", "content": prompt}],
-    )
-    command = response.choices[0].message.content
-
-    result, diagnosis = agent.execute(command)
-    print(f"Action: {command}")
-    print(f"Result: {diagnosis}")
-
-# Save final board
-agent.save("board_optimized.kicad_pcb")
-```
-
-### 5.5 Installation on Databricks
-
-**Cluster init script:**
-
-```bash
-#!/bin/bash
-pip install kicad-tools
-```
-
-**Or in notebook:**
-
-```python
-%pip install kicad-tools
-dbutils.library.restartPython()
-```
-
----
-
-## 6. Architecture Overview
+## 5. Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -847,33 +569,28 @@ dbutils.library.restartPython()
 │  │  Ingestion   │    │        Unity Catalog                 │   │
 │  │  Workflow     │───▶│  main.kicad.open_schematics (Delta) │   │
 │  │  (HF → Delta)│    │  main.kicad.open_schematics_enriched│   │
-│  └──────────────┘    │  main.kicad.list_components()  (UDF) │   │
-│                      │  main.kicad.generate_bom()     (UDF) │   │
-│                      │  main.kicad.run_erc()          (UDF) │   │
-│                      └──────────────┬───────────────────────┘   │
+│  └──────────────┘    └──────────────┬───────────────────────┘   │
 │                                     │                           │
 │  ┌──────────────┐    ┌──────────────▼───────────────────────┐   │
 │  │  Model       │    │        Notebooks                     │   │
 │  │  Serving     │    │  - Qwen3VL batch inference (Spark)   │   │
 │  │  Endpoint    │    │  - KiCad rendering (kicad-cli/mpl)   │   │
-│  │  (Qwen3VL)   │    │  - PCBReasoningAgent sessions        │   │
-│  └──────┬───────┘    └──────────────────────────────────────┘   │
+│  │  (Qwen3VL)   │    └──────────────────────────────────────┘   │
+│  └──────┬───────┘                                               │
 │         │                                                       │
-│  ┌──────▼───────┐    ┌──────────────────────────────────────┐   │
-│  │  REST API    │    │        Code Genie                    │   │
-│  │  /serving/   │    │  - UC function tools (kicad-tools)   │   │
-│  │  qwen3vl-sch │    │  - "List components in schematic X"  │   │
-│  └──────────────┘    │  - "Run DRC on my PCB"               │   │
-│                      │  - "Generate BOM"                     │   │
-│                      └──────────────────────────────────────┘   │
+│  ┌──────▼───────┐                                               │
+│  │  REST API    │                                               │
+│  │  /serving/   │                                               │
+│  │  qwen3vl-sch │                                               │
+│  └──────────────┘                                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 7. Dependencies & Prerequisites
+## 6. Dependencies & Prerequisites
 
-### 7.1 Python Packages
+### 6.1 Python Packages
 
 | Package | Version | Purpose |
 |---------|---------|---------|
@@ -882,12 +599,11 @@ dbutils.library.restartPython()
 | `transformers` | >= 4.40 | Qwen3VL model loading & inference |
 | `torch` | >= 2.0 | PyTorch backend |
 | `accelerate` | >= 0.27 | Multi-GPU / device_map support |
-| `kicad-tools` | latest | Agentic KiCad file manipulation |
 | `kicad-python` | >= 0.7 | Official KiCad IPC API bindings (optional) |
 | `Pillow` | >= 10.0 | Image handling |
 | `mlflow` | >= 2.10 | Model logging & serving |
 
-### 7.2 Infrastructure
+### 6.2 Infrastructure
 
 | Resource | Specification |
 |----------|--------------|
@@ -897,32 +613,16 @@ dbutils.library.restartPython()
 | **Rendering cluster** | Cluster with kicad-cli init script (for Approach A) |
 | **Unity Catalog** | Catalog `main`, schema `kicad` |
 
-### 7.3 Permissions
+### 6.3 Permissions
 
-- Unity Catalog: CREATE TABLE, CREATE FUNCTION on `main.kicad`
+- Unity Catalog: CREATE TABLE on `main.kicad`
 - Model Serving: CREATE_ENDPOINT permission
 - Cluster: Custom init script permissions
 - External access: Outbound HTTPS to `huggingface.co` for dataset download
 
 ---
 
-## Appendix A: kicad-python vs kicad-tools
-
-| Feature | kicad-python | kicad-tools |
-|---------|-------------|-------------|
-| **Requires running KiCad** | Yes (IPC API client) | No (standalone parsing) |
-| **Headless mode** | KiCad 11+ via `kicad-cli api-server` | Native |
-| **File parsing** | Via KiCad engine | Pure Python S-expression parser |
-| **DRC/ERC** | Via KiCad engine (full fidelity) | Pure Python (good coverage) |
-| **MCP support** | No | Yes (`kct mcp serve`) |
-| **LLM integration** | Manual | Built-in (`PCBReasoningAgent`) |
-| **Best for** | Production-grade operations needing KiCad engine | AI/agent workflows, Databricks integration |
-
-**Recommendation:** Use **kicad-tools** for Databricks integration (Components 3 & 4) because it works without a running KiCad instance. Use **kicad-python** only if you need full-fidelity KiCad engine operations and can run a headless KiCad API server.
-
----
-
-## Appendix B: open-schematics Dataset Statistics
+## Appendix A: open-schematics Dataset Statistics
 
 - **Total schematics:** 84,470
 - **Dataset size:** 6.67 GB (Parquet)
