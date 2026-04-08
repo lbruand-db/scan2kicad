@@ -11,6 +11,8 @@ dependencies = [
     "Pillow>=10.0",
     "matplotlib>=3.8",
     "mlflow>=2.10",
+    "kicad-sch-api>=0.5",
+    "sexpdata>=1.0",
 ]
 
 [project.optional-dependencies]

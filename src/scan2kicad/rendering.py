@@ -96,14 +96,10 @@ _PROPERTY_PATTERN = re.compile(
 )
 
 # Junction markers: (junction (at x y))
-_JUNCTION_PATTERN = re.compile(
-    r"\(junction\s+\(at\s+([\d.e+-]+)\s+([\d.e+-]+)\)"
-)
+_JUNCTION_PATTERN = re.compile(r"\(junction\s+\(at\s+([\d.e+-]+)\s+([\d.e+-]+)\)")
 
 # No-connect markers: (no_connect (at x y))
-_NO_CONNECT_PATTERN = re.compile(
-    r"\(no_connect\s+\(at\s+([\d.e+-]+)\s+([\d.e+-]+)\)"
-)
+_NO_CONNECT_PATTERN = re.compile(r"\(no_connect\s+\(at\s+([\d.e+-]+)\s+([\d.e+-]+)\)")
 
 # Labels: (label "text" (at x y angle))
 _LABEL_PATTERN = re.compile(
@@ -143,10 +139,7 @@ def _parse_labels(sch_content: str) -> list[tuple[str, float, float]]:
 
 def _parse_junctions(sch_content: str) -> list[tuple[float, float]]:
     """Extract junction points."""
-    return [
-        (float(m.group(1)), float(m.group(2)))
-        for m in _JUNCTION_PATTERN.finditer(sch_content)
-    ]
+    return [(float(m.group(1)), float(m.group(2))) for m in _JUNCTION_PATTERN.finditer(sch_content)]
 
 
 def _parse_references(sch_content: str) -> list[tuple[str, float, float]]:
@@ -188,16 +181,24 @@ def render_schematic_matplotlib(sch_content: str) -> Figure:
     # Draw reference designators
     for ref, x, y in references:
         ax.annotate(
-            ref, (x, -y),
-            fontsize=5, color="darkred", ha="center", va="bottom",
+            ref,
+            (x, -y),
+            fontsize=5,
+            color="darkred",
+            ha="center",
+            va="bottom",
             zorder=7,
         )
 
     # Draw labels (net names, global labels)
     for text, x, y in labels:
         ax.annotate(
-            text, (x, -y),
-            fontsize=5, color="darkgreen", ha="center", va="top",
+            text,
+            (x, -y),
+            fontsize=5,
+            color="darkgreen",
+            ha="center",
+            va="top",
             zorder=7,
             bbox={"boxstyle": "round,pad=0.1", "fc": "lightyellow", "ec": "gray", "lw": 0.3},
         )
@@ -210,9 +211,14 @@ def render_schematic_matplotlib(sch_content: str) -> Figure:
     )
     if n_elements == 0:
         ax.text(
-            0.5, 0.5, "No elements parsed",
-            transform=ax.transAxes, ha="center", va="center",
-            fontsize=14, color="gray",
+            0.5,
+            0.5,
+            "No elements parsed",
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+            fontsize=14,
+            color="gray",
         )
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
