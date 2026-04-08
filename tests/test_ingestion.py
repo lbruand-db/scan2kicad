@@ -52,7 +52,9 @@ class TestIngestOpenSchematics:
         assert "CREATE SCHEMA IF NOT EXISTS lucasbruand_catalog.kicad" in first_sql
 
     def test_writes_delta_table(self) -> None:
-        _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad", table="open_schematics")
+        _, mock_spark = _run_ingest(
+            catalog="lucasbruand_catalog", schema="kicad", table="open_schematics"
+        )
         mock_df = mock_spark.read.parquet.return_value
         mock_df.write.format.assert_called_once_with("delta")
         mock_df.write.format().mode.assert_called_once_with("overwrite")
