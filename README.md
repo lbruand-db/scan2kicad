@@ -1,5 +1,17 @@
 # scan2kicad
 
+[![CI](https://github.com/lbruand-db/scan2kicad/actions/workflows/ci.yml/badge.svg)](https://github.com/lbruand-db/scan2kicad/actions/workflows/ci.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/badge/type--checked-ty-blue)](https://github.com/astral-sh/ty)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![KiCad](https://img.shields.io/badge/KiCad-314CB0?logo=kicad&logoColor=white)](https://www.kicad.org/)
+[![Databricks](https://img.shields.io/badge/Databricks-FF3621?logo=databricks&logoColor=white)](https://databricks.com/)
+[![Hugging Face](https://img.shields.io/badge/HuggingFace-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/datasets/bshada/open-schematics)
+[![MLflow](https://img.shields.io/badge/MLflow-0194E2?logo=mlflow&logoColor=white)](https://mlflow.org/)
+[![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-blueviolet?logo=anthropic&logoColor=white)](https://claude.ai/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+
 KiCAD on Databricks — ingest, understand, and render electronic schematics.
 
 ## Components
