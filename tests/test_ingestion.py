@@ -47,24 +47,24 @@ class TestIngestOpenSchematics:
         assert fqn == "test_cat.test_sch.test_tbl"
 
     def test_creates_schema(self) -> None:
-        _, mock_spark = _run_ingest(catalog="main", schema="kicad")
+        _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad")
         first_sql = mock_spark.sql.call_args_list[0][0][0]
-        assert "CREATE SCHEMA IF NOT EXISTS main.kicad" in first_sql
+        assert "CREATE SCHEMA IF NOT EXISTS lucasbruand_catalog.kicad" in first_sql
 
     def test_writes_delta_table(self) -> None:
-        _, mock_spark = _run_ingest(catalog="main", schema="kicad", table="open_schematics")
+        _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad", table="open_schematics")
         mock_df = mock_spark.read.parquet.return_value
         mock_df.write.format.assert_called_once_with("delta")
         mock_df.write.format().mode.assert_called_once_with("overwrite")
 
     def test_runs_optimize(self) -> None:
-        _, mock_spark = _run_ingest(catalog="main", schema="kicad")
+        _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad")
         last_sql = mock_spark.sql.call_args_list[-1][0][0]
-        assert "OPTIMIZE main.kicad.open_schematics" in last_sql
+        assert "OPTIMIZE lucasbruand_catalog.kicad.open_schematics" in last_sql
 
     def test_default_table_name(self) -> None:
         fqn, _ = _run_ingest()
-        assert fqn == "main.kicad.open_schematics"
+        assert fqn == "lucasbruand_catalog.kicad.open_schematics"
 
     def test_calls_load_dataset(self) -> None:
         from scan2kicad import ingestion
@@ -89,7 +89,7 @@ class TestCreateDerivedViews:
             mock_spark = MagicMock()
             mock_get_spark.return_value = mock_spark
 
-            create_derived_views(catalog="main", schema="kicad")
+            create_derived_views(catalog="lucasbruand_catalog", schema="kicad")
 
             assert mock_spark.sql.call_count == 2
 

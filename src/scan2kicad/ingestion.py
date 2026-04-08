@@ -14,7 +14,7 @@ def get_spark() -> SparkSession:
 
 
 def ingest_open_schematics(
-    catalog: str = "main",
+    catalog: str = "lucasbruand_catalog",
     schema: str = "kicad",
     table: str = "open_schematics",
 ) -> str:
@@ -49,7 +49,7 @@ def ingest_open_schematics(
     return fqn
 
 
-def create_derived_views(catalog: str = "main", schema: str = "kicad") -> None:
+def create_derived_views(catalog: str = "lucasbruand_catalog", schema: str = "kicad") -> None:
     """Create analytics views on top of the open_schematics table."""
     spark = get_spark()
 

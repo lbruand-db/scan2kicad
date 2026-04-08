@@ -82,7 +82,7 @@ MODEL_SIGNATURE = ModelSignature(
 
 
 def register_model(
-    catalog: str = "main",
+    catalog: str = "lucasbruand_catalog",
     schema: str = "kicad",
 ) -> str:
     """Download model weights, log to MLflow, and register in Unity Catalog.

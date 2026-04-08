@@ -8,7 +8,7 @@ variables:
   databricks_host:
     description: Databricks workspace URL
   catalog:
-    default: main
+    default: lucasbruand_catalog
   schema:
     default: kicad
 

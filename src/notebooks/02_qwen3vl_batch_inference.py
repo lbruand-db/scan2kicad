@@ -16,7 +16,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "main")
+dbutils.widgets.text("catalog", "lucasbruand_catalog")
 dbutils.widgets.text("schema", "kicad")
 
 catalog = dbutils.widgets.get("catalog")
