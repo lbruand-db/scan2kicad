@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-import datasets  # noqa: F401 — imported to trigger pyarrow registration once
 import pytest
 
 
@@ -27,14 +26,16 @@ def _mock_pyspark():
 
 
 def _run_ingest(**kwargs: str) -> tuple[str, MagicMock]:
-    """Helper: run ingest_open_schematics with mocked Spark and load_dataset."""
+    """Helper: run ingest_open_schematics with mocked Spark and snapshot_download."""
     from scan2kicad import ingestion
 
     mock_spark = MagicMock()
 
     with (
         patch.object(ingestion, "get_spark", return_value=mock_spark),
-        patch("datasets.load_dataset", return_value=MagicMock()),
+        patch.object(ingestion, "snapshot_download"),
+        patch.object(ingestion.os, "makedirs"),
+        patch.object(ingestion.glob, "glob", return_value=[]),
     ):
         fqn = ingestion.ingest_open_schematics(**kwargs)
 
@@ -46,10 +47,11 @@ class TestIngestOpenSchematics:
         fqn, _ = _run_ingest(catalog="test_cat", schema="test_sch", table="test_tbl")
         assert fqn == "test_cat.test_sch.test_tbl"
 
-    def test_creates_schema(self) -> None:
+    def test_creates_schema_and_volume(self) -> None:
         _, mock_spark = _run_ingest(catalog="lucasbruand_catalog", schema="kicad")
-        first_sql = mock_spark.sql.call_args_list[0][0][0]
-        assert "CREATE SCHEMA IF NOT EXISTS lucasbruand_catalog.kicad" in first_sql
+        sql_calls = [c[0][0] for c in mock_spark.sql.call_args_list]
+        assert any("CREATE SCHEMA IF NOT EXISTS lucasbruand_catalog.kicad" in s for s in sql_calls)
+        assert any("CREATE VOLUME IF NOT EXISTS lucasbruand_catalog.kicad.raw" in s for s in sql_calls)
 
     def test_writes_delta_table(self) -> None:
         _, mock_spark = _run_ingest(
@@ -68,19 +70,23 @@ class TestIngestOpenSchematics:
         fqn, _ = _run_ingest()
         assert fqn == "lucasbruand_catalog.kicad.open_schematics"
 
-    def test_calls_load_dataset(self) -> None:
+    def test_calls_snapshot_download(self) -> None:
         from scan2kicad import ingestion
 
         mock_spark = MagicMock()
-        mock_load = MagicMock(return_value=MagicMock())
 
         with (
             patch.object(ingestion, "get_spark", return_value=mock_spark),
-            patch("datasets.load_dataset", mock_load),
+            patch.object(ingestion, "snapshot_download") as mock_download,
+            patch.object(ingestion.os, "makedirs"),
+            patch.object(ingestion.glob, "glob", return_value=[]),
         ):
             ingestion.ingest_open_schematics()
 
-        mock_load.assert_called_once_with("bshada/open-schematics", split="train")
+        mock_download.assert_called_once()
+        call_kwargs = mock_download.call_args[1]
+        assert call_kwargs["repo_id"] == "bshada/open-schematics"
+        assert call_kwargs["repo_type"] == "dataset"
 
 
 class TestCreateDerivedViews:

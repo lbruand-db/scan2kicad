@@ -2,11 +2,9 @@ bundle:
   name: scan2kicad
 
 workspace:
-  host: ${var.databricks_host}
+  host: https://e2-demo-field-eng.cloud.databricks.com
 
 variables:
-  databricks_host:
-    description: Databricks workspace URL
   catalog:
     default: lucasbruand_catalog
   schema:
@@ -14,6 +12,12 @@ variables:
 
 include:
   - resources/*.yml
+
+artifacts:
+  scan2kicad_wheel:
+    type: whl
+    path: .
+    build: uv build --wheel
 
 targets:
   dev:

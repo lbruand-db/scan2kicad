@@ -9,7 +9,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install datasets huggingface-hub
+# MAGIC %pip install huggingface-hub
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
