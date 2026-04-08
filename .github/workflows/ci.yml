@@ -24,11 +24,15 @@ jobs:
       - run: uv sync --extra dev
       - name: Run ty (warnings expected for GPU/Spark deps)
         run: |
-          uv run ty check src/scan2kicad/ 2>&1; rc=$?
-          # Exit code 1 = warnings only (expected), 2+ = config/hard errors
+          set +e
+          output=$(uv run ty check src/scan2kicad/ 2>&1)
+          rc=$?
+          echo "$output"
+          # Exit code 2+ = config/hard errors
           if [ $rc -ge 2 ]; then exit $rc; fi
-          # Fail if any actual errors (not warnings)
-          uv run ty check src/scan2kicad/ 2>&1 | grep -q "^error" && exit 1 || true
+          # Fail only if output contains actual errors (not warnings)
+          if echo "$output" | grep -q "^error"; then exit 1; fi
+          exit 0
 
   test:
     runs-on: ubuntu-latest
